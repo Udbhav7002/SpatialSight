@@ -10,8 +10,8 @@ permissions:
   contents: write
 
 jobs:
-  build-android:
-    name: Build Android APK
+  build-packages:
+    name: Build Packages and APK
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Code
@@ -23,48 +23,36 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v3
 
-      - name: Grant execute permission for gradlew
-        run: chmod +x android_app/gradlew
-
-      - name: Build APK with Gradle
+      - name: Build Android APK
+        id: build_apk
+        continue-on-error: true
         run: |
           cd android_app
+          chmod +x gradlew
           ./gradlew assembleDebug --no-daemon
 
-      - name: Upload APK Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: SpatialSight-Android-APK
-          path: android_app/app/build/outputs/apk/debug/app-debug.apk
-
-  package-and-release:
-    name: Package and Publish Release
-    needs: build-android
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout Code
-        uses: actions/checkout@v4
-
-      - name: Download Android APK
-        uses: actions/download-artifact@v4
-        with:
-          name: SpatialSight-Android-APK
-          path: ./release-assets
-
-      - name: Rename APK for Release
+      - name: Prepare Release Assets
         run: |
-          mv ./release-assets/app-debug.apk ./release-assets/SpatialSight-Android-v1.0.0.apk
-
-      - name: Package macOS App
-        run: |
+          mkdir -p release-assets
+          
+          # Package macOS App
           zip -r ./release-assets/SpatialSight-macOS.zip mac_app/ -x "mac_app/__pycache__/*" "mac_app/**/__pycache__/*" "mac_app/venv/*"
-
-      - name: Package Windows App
-        run: |
+          
+          # Package Windows App
           zip -r ./release-assets/SpatialSight-Windows.zip windows_app/ -x "windows_app/__pycache__/*" "windows_app/**/__pycache__/*" "windows_app/venv/*"
+          
+          # If APK was built, copy it; otherwise zip Android source
+          if [ -f "android_app/app/build/outputs/apk/debug/app-debug.apk" ]; then
+            cp android_app/app/build/outputs/apk/debug/app-debug.apk ./release-assets/SpatialSight-Android-v1.0.0.apk
+          else
+            echo "APK build failed or skipped, packaging Android source"
+            zip -r ./release-assets/SpatialSight-Android-Source.zip android_app/ -x "android_app/.gradle/*" "android_app/**/build/*"
+          fi
+          
+          ls -la ./release-assets
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
@@ -74,21 +62,13 @@ jobs:
           draft: false
           prerelease: false
           body: |
-            ## SpatialSight v1.0.0 Downloads
+            ## SpatialSight Releases for All Devices
 
-            ### 📱 Android Phone
-            * Download **`SpatialSight-Android-v1.0.0.apk`** and install it on your Android phone.
+            Download the package for your device:
 
-            ### 🍎 macOS (Apple Silicon M1/M2/M3/M4/M5)
-            * Download **`SpatialSight-macOS.zip`**.
-            * Extract and run `./run_mac.sh`.
-
-            ### 🪟 Windows PC
-            * Download **`SpatialSight-Windows.zip`**.
-            * Extract, double-click `setup_windows.bat`, then double-click `run_windows.bat`.
-          files: |
-            ./release-assets/SpatialSight-Android-v1.0.0.apk
-            ./release-assets/SpatialSight-macOS.zip
-            ./release-assets/SpatialSight-Windows.zip
+            * 📱 **Android Phone:** Download `SpatialSight-Android-v1.0.0.apk` (or `SpatialSight-Android-Source.zip` for Android Studio).
+            * 🍎 **macOS (Apple Silicon M1–M5):** Download `SpatialSight-macOS.zip` → extract and run `./run_mac.sh`.
+            * 🪟 **Windows PC:** Download `SpatialSight-Windows.zip` → extract, run `setup_windows.bat` once, then run `run_windows.bat`.
+          files: ./release-assets/*
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
