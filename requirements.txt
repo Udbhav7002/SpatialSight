@@ -1,0 +1,26 @@
+# SpatialSight - Python Dependencies
+# Install with: pip install -r requirements.txt
+
+# === Core AI / Computer Vision ===
+ultralytics>=8.2.0          # YOLOv8/v11 object detection
+torch>=2.2.0                # PyTorch with MPS (Apple Silicon) support
+torchvision>=0.17.0         # Image transforms and pretrained backbones
+opencv-python-headless>=4.8.0  # Frame capture, drawing, image processing (headless for server compat)
+
+# === Desktop GUI ===
+PyQt6>=6.6.0                # Cross-platform desktop UI framework
+PyQt6-Qt6>=6.6.0            # Qt6 binaries
+
+# === Utilities ===
+numpy>=1.24.0               # Array operations for frame manipulation
+Pillow>=10.0.0              # Image format handling
+pyyaml>=6.0                 # YAML config parsing (for YOLO dataset configs)
+
+# === USB / ADB Bridge ===
+# adb is a system binary (installed via brew/Android SDK), not a pip package.
+# Ensure `adb` is on PATH: brew install android-platform-tools
+
+# === Optional: Vision-Language Model Q&A (Phase 8) ===
+# mlx>=0.10.0               # Apple MLX framework for local LLM inference
+# mlx-lm>=0.10.0            # MLX language model utilities
+# transformers>=4.40.0      # Hugging Face model loading

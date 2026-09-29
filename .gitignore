@@ -1,0 +1,56 @@
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Python & Virtual Environments
+venv/
+env/
+ENV/
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+.pytest_cache/
+
+# Model Weights (downloaded dynamically or trained locally)
+*.pt
+*.onnx
+*.engine
+*.tflite
+
+# Android / Gradle
+.gradle/
+**/build/
+captures/
+.externalNativeBuild
+.cxx/
+*.apk
+*.aab
+local.properties
+.idea/
+*.iml
+.android/
+
+# Dataset capture images (keep directory structure via .gitkeep)
+rc_car_dataset/images/*.jpg
+rc_car_dataset/images/*.png
+rc_car_dataset/labels/*.txt
+!rc_car_dataset/images/.gitkeep
+!rc_car_dataset/labels/.gitkeep
