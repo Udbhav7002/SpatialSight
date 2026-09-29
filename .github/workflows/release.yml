@@ -1,0 +1,94 @@
+name: Build and Publish Releases
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-android:
+    name: Build Android APK
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Grant execute permission for gradlew
+        run: chmod +x android_app/gradlew
+
+      - name: Build APK with Gradle
+        run: |
+          cd android_app
+          ./gradlew assembleDebug --no-daemon
+
+      - name: Upload APK Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: SpatialSight-Android-APK
+          path: android_app/app/build/outputs/apk/debug/app-debug.apk
+
+  package-and-release:
+    name: Package and Publish Release
+    needs: build-android
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Download Android APK
+        uses: actions/download-artifact@v4
+        with:
+          name: SpatialSight-Android-APK
+          path: ./release-assets
+
+      - name: Rename APK for Release
+        run: |
+          mv ./release-assets/app-debug.apk ./release-assets/SpatialSight-Android-v1.0.0.apk
+
+      - name: Package macOS App
+        run: |
+          zip -r ./release-assets/SpatialSight-macOS.zip mac_app/ -x "mac_app/__pycache__/*" "mac_app/**/__pycache__/*" "mac_app/venv/*"
+
+      - name: Package Windows App
+        run: |
+          zip -r ./release-assets/SpatialSight-Windows.zip windows_app/ -x "windows_app/__pycache__/*" "windows_app/**/__pycache__/*" "windows_app/venv/*"
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name || 'v1.0.0' }}
+          name: SpatialSight ${{ github.ref_name || 'v1.0.0' }}
+          draft: false
+          prerelease: false
+          body: |
+            ## SpatialSight v1.0.0 Downloads
+
+            ### 📱 Android Phone
+            * Download **`SpatialSight-Android-v1.0.0.apk`** and install it on your Android phone.
+
+            ### 🍎 macOS (Apple Silicon M1/M2/M3/M4/M5)
+            * Download **`SpatialSight-macOS.zip`**.
+            * Extract and run `./run_mac.sh`.
+
+            ### 🪟 Windows PC
+            * Download **`SpatialSight-Windows.zip`**.
+            * Extract, double-click `setup_windows.bat`, then double-click `run_windows.bat`.
+          files: |
+            ./release-assets/SpatialSight-Android-v1.0.0.apk
+            ./release-assets/SpatialSight-macOS.zip
+            ./release-assets/SpatialSight-Windows.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
