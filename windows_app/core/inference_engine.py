@@ -1,5 +1,5 @@
 """
-Inference Engine — YOLO model loader and real-time inference runner.
+Inference Engine - YOLO model loader and real-time inference runner.
 
 Supports:
 - Apple Silicon MPS (Metal Performance Shaders) acceleration
@@ -139,7 +139,7 @@ class InferenceEngine:
             self._model_path = model_path
             self._class_names = self._model.names
             logger.info(
-                f"Model loaded in {elapsed:.0f}ms — "
+                f"Model loaded in {elapsed:.0f}ms - "
                 f"{len(self._class_names)} classes on {self._device}"
             )
             return True
@@ -151,7 +151,7 @@ class InferenceEngine:
             return False
 
     def set_confidence(self, confidence: float) -> None:
-        """Set the minimum detection confidence threshold (0.0 – 1.0)."""
+        """Set the minimum detection confidence threshold (0.0 - 1.0)."""
         self._confidence = max(0.0, min(1.0, confidence))
 
     def set_iou_threshold(self, iou: float) -> None:
@@ -180,7 +180,7 @@ class InferenceEngine:
             InferenceResult with all detections and timing info.
         """
         if self._model is None:
-            logger.warning("No model loaded — call load_model() first")
+            logger.warning("No model loaded - call load_model() first")
             return InferenceResult(frame_shape=frame.shape)
 
         start = time.monotonic()
@@ -227,8 +227,22 @@ class InferenceEngine:
         )
 
     def list_available_models(self, models_dir: str = "models") -> list[str]:
-        """List all .pt model files in the models directory."""
+        """List all .pt model files in the models directory and local application root."""
+        models: set[str] = set()
+        
+        # Check models directory
         models_path = Path(models_dir)
-        if not models_path.exists():
-            return []
-        return [str(p) for p in models_path.glob("*.pt")]
+        if models_path.exists():
+            for p in models_path.glob("*.pt"):
+                models.add(str(p))
+                
+        # Check local directory
+        local_dir = Path(__file__).resolve().parent.parent
+        for p in local_dir.glob("*.pt"):
+            models.add(str(p))
+
+        # Always include yolov8n.pt as baseline
+        if not models:
+            models.add("yolov8n.pt")
+
+        return sorted(list(models))

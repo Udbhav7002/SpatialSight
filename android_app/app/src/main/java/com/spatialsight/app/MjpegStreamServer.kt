@@ -15,9 +15,9 @@ import java.util.concurrent.atomic.AtomicReference
  * Lightweight embedded HTTP server that streams the camera feed as MJPEG.
  *
  * Endpoints:
- *   GET /video   — MJPEG video stream (consumed by OpenCV on the Mac)
- *   GET /sensors — JSON with current rotation vector sensor data
- *   GET /status  — JSON health check
+ *   GET /video   - MJPEG video stream (consumed by OpenCV on the Mac)
+ *   GET /sensors - JSON with current rotation vector sensor data
+ *   GET /status  - JSON health check
  *
  * The Mac connects to this server via ADB port forwarding:
  *   adb forward tcp:8080 tcp:8080
@@ -218,9 +218,9 @@ class MjpegStreamServer(
  * Data class holding the phone's orientation sensor readings.
  */
 data class SensorData(
-    val yaw: Float = 0f,      // Azimuth / horizontal rotation (0–360°)
-    val pitch: Float = 0f,    // Vertical tilt (-90° to +90°)
-    val roll: Float = 0f,     // Side tilt (-180° to +180°)
+    val yaw: Float = 0f,      // Azimuth / horizontal rotation (0-360 deg)
+    val pitch: Float = 0f,    // Vertical tilt (-90 deg to +90 deg)
+    val roll: Float = 0f,     // Side tilt (-180 deg to +180 deg)
     val timestamp: Long = 0L, // System timestamp in milliseconds
     val accuracy: Int = 0     // Sensor accuracy (0=unreliable, 3=high)
 )

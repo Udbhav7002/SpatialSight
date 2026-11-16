@@ -1,0 +1,56 @@
+#!/bin/bash
+# SpatialSight - macOS launcher (double-clickable app bundle)
+# Runs the bundled dashboard with Apple Silicon MPS acceleration.
+
+set -u
+
+DIR="$(cd "$(dirname "$0")" && pwd)"          # .../SpatialSight.app/Contents/MacOS
+APP_DIR="$DIR/../Resources/app"
+cd "$APP_DIR" || exit 1
+
+PYTHON_CANDIDATES=(
+    "/opt/homebrew/bin/python3.12"
+    "/opt/homebrew/bin/python3.11"
+    "/opt/homebrew/bin/python3.10"
+    "/usr/local/bin/python3.12"
+    "/usr/local/bin/python3"
+    "/usr/bin/python3"
+)
+
+find_python() {
+    for p in "${PYTHON_CANDIDATES[@]}"; do
+        [ -x "$p" ] && { echo "$p"; return 0; }
+    done
+    command -v python3 2>/dev/null
+}
+
+PY=""
+VENV_DIR="$APP_DIR/venv"
+
+# 1. Bundle-local venv (created on first run, or reused)
+if [ -x "$VENV_DIR/bin/python" ]; then
+    PY="$VENV_DIR/bin/python"
+else
+    # 2. Reuse the project's existing venv when the app is kept inside the project
+    PROJ_VENV="$DIR/../../../../../mac_app/venv"
+    if [ -x "$PROJ_VENV/bin/python" ]; then
+        PY="$PROJ_VENV/bin/python"
+    else
+        # 3. First run on a new machine: build a venv inside the bundle
+        BASE_PY="$(find_python)"
+        if [ -z "$BASE_PY" ]; then
+            osascript -e 'display dialog "Python 3.10+ is required but was not found.\nInstall it with:  brew install python@3.12" buttons {"OK"} default button 1 with icon stop with title "SpatialSight"' >/dev/null 2>&1
+            exit 1
+        fi
+        echo "First run: setting up environment (this can take 5-15 minutes)..." >&2
+        "$BASE_PY" -m venv "$VENV_DIR" || exit 1
+        "$VENV_DIR/bin/pip" install --upgrade pip >/dev/null
+        "$VENV_DIR/bin/pip" install -r "$APP_DIR/requirements_mac.txt" || {
+            osascript -e 'display dialog "Dependency installation failed.\nRun: runnable/macOS/run_in_terminal.command  to see the error." buttons {"OK"} default button 1 with icon stop with title "SpatialSight"' >/dev/null 2>&1
+            exit 1
+        }
+        PY="$VENV_DIR/bin/python"
+    fi
+fi
+
+exec "$PY" "$APP_DIR/main_gui.py" --source 0 --model "$APP_DIR/yolov8n.pt" "$@"

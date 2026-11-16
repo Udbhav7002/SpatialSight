@@ -66,9 +66,9 @@ jobs:
 
             Download the package for your device:
 
-            * 📱 **Android Phone:** Download `SpatialSight-Android-v1.0.0.apk` (or `SpatialSight-Android-Source.zip` for Android Studio).
-            * 🍎 **macOS (Apple Silicon M1–M5):** Download `SpatialSight-macOS.zip` → extract and run `./run_mac.sh`.
-            * 🪟 **Windows PC:** Download `SpatialSight-Windows.zip` → extract, run `setup_windows.bat` once, then run `run_windows.bat`.
+            * **Android Phone:** Download `SpatialSight-Android-v1.0.0.apk` (or `SpatialSight-Android-Source.zip` for Android Studio).
+            * **macOS (Apple Silicon M1-M5):** Download `SpatialSight-macOS.zip`, extract, and open the included `SpatialSight.app`.
+            * **Windows PC:** Download `SpatialSight-Windows.zip`, extract, then double-click `SpatialSight.bat`.
           files: ./release-assets/*
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

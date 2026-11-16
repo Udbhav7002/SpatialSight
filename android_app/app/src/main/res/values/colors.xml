@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="brand_bg">#15370D</color>
+    <color name="brand_surface">#1E4714</color>
+    <color name="brand_surface_dark">#0E2409</color>
+    <color name="brand_border">#E5CD82</color>
+    <color name="brand_text">#FFF2B4</color>
+    <color name="brand_text_muted">#E5CD82</color>
+    <color name="brand_status_dot">#E5CD82</color>
+    <color name="brand_green">#E5CD82</color>
+    <color name="brand_red">#FF453A</color>
+</resources>

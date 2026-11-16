@@ -1,13 +1,21 @@
 # macOS
 .DS_Store
+**/.DS_Store
 .AppleDouble
 .LSOverride
 
+# Release Archives & Distribution
+release-assets/
+*.zip
+
 # Python & Virtual Environments
 venv/
+**/venv/
 env/
+**/env/
 ENV/
 __pycache__/
+**/__pycache__/
 *.py[cod]
 *$py.class
 *.so
@@ -29,6 +37,7 @@ wheels/
 .installed.cfg
 *.egg
 .pytest_cache/
+**/.pytest_cache/
 
 # Model Weights (downloaded dynamically or trained locally)
 *.pt

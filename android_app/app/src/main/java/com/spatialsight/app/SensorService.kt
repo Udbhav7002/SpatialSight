@@ -73,9 +73,9 @@ class SensorService(context: Context) : SensorEventListener {
         SensorManager.getOrientation(rotationMatrix, orientationAngles)
 
         // Convert to degrees
-        // orientationAngles[0] = azimuth (yaw): -π to π → 0° to 360°
-        // orientationAngles[1] = pitch: -π/2 to π/2 → -90° to 90°
-        // orientationAngles[2] = roll: -π to π → -180° to 180°
+        // orientationAngles[0] = azimuth (yaw): -pi to pi -> 0 deg to 360 deg
+        // orientationAngles[1] = pitch: -pi/2 to pi/2 -> -90 deg to 90 deg
+        // orientationAngles[2] = roll: -pi to pi -> -180 deg to 180 deg
         val yawDeg = ((Math.toDegrees(orientationAngles[0].toDouble()) + 360) % 360).toFloat()
         val pitchDeg = Math.toDegrees(orientationAngles[1].toDouble()).toFloat()
         val rollDeg = Math.toDegrees(orientationAngles[2].toDouble()).toFloat()
@@ -113,7 +113,7 @@ class SensorService(context: Context) : SensorEventListener {
     }
 
     /**
-     * Shortest angular difference handling wraparound (350° → 10° = 20°).
+     * Shortest angular difference handling wraparound (350 deg -> 10 deg = 20 deg).
      */
     private fun angleDiff(a: Float, b: Float): Float {
         return ((a - b + 180f) % 360f) - 180f

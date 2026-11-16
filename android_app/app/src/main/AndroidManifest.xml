@@ -5,6 +5,8 @@
     <!-- Camera access -->
     <uses-feature android:name="android.hardware.camera" android:required="true" />
     <uses-permission android:name="android.permission.CAMERA" />
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
 
     <!-- Sensors (gyroscope, rotation vector) -->
     <uses-feature android:name="android.hardware.sensor.gyroscope" android:required="false" />
@@ -12,6 +14,7 @@
     <application
         android:allowBackup="true"
         android:icon="@mipmap/ic_launcher"
+        android:roundIcon="@mipmap/ic_launcher_round"
         android:label="SpatialSight"
         android:supportsRtl="true"
         android:theme="@style/Theme.SpatialSight"
@@ -20,7 +23,7 @@
         <activity
             android:name=".MainActivity"
             android:exported="true"
-            android:screenOrientation="portrait"
+            android:screenOrientation="landscape"
             android:keepScreenOn="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />

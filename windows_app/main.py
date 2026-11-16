@@ -1,5 +1,5 @@
 """
-SpatialSight — Main entry point for the desktop detection app.
+SpatialSight - Main entry point for the desktop detection app.
 
 Quick-start validation script that runs YOLOv8n on the built-in webcam
 to verify the inference pipeline works on Apple Silicon MPS.
@@ -9,11 +9,11 @@ Usage:
     python main.py [--source 0] [--model yolov8n.pt]
 
 Controls:
-    Q / ESC     — Quit
-    C           — Capture current frame to rc_car_dataset/
-    +/-         — Increase/decrease confidence threshold
-    Z           — Toggle collision warning zone
-    SPACE       — Pause/resume
+    Q / ESC     - Quit
+    C           - Capture current frame to rc_car_dataset/
+    +/-         - Increase/decrease confidence threshold
+    Z           - Toggle collision warning zone
+    SPACE       - Pause/resume
 """
 
 import sys
@@ -25,7 +25,7 @@ import logging
 import cv2
 import numpy as np
 
-# Add windows_app directory to path
+# Add mac_app directory to path
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from core.frame_buffer import FrameBuffer
@@ -42,33 +42,59 @@ logging.basicConfig(
 logger = logging.getLogger("SpatialSight")
 
 
-# ── Color palette for bounding boxes (BGR) ──────────────────────────────────
-COLORS = [
-    (255, 100, 100), (100, 255, 100), (100, 100, 255),
-    (255, 255, 100), (255, 100, 255), (100, 255, 255),
-    (200, 150, 50),  (50, 200, 150),  (150, 50, 200),
-    (255, 200, 150), (150, 200, 255), (200, 255, 150),
-]
+from core.categories import map_to_target_category, get_target_real_height
+
+# -- Design Palette Colors (BGR) ---------------------------------------------
+COLOR_BG_DARK_GREEN = (13, 55, 21)    # #15370D
+COLOR_BRASS_GOLD    = (130, 205, 229) # #E5CD82
+COLOR_CREAM_YELLOW  = (180, 242, 255) # #FFF2B4
+COLOR_CAUTION_YEL   = (10, 214, 255)  # #FFD60A
+COLOR_EMERGENCY_RED = (58, 69, 255)   # #FF453A
 
 
 def draw_detections(frame: np.ndarray, result: InferenceResult) -> np.ndarray:
-    """Draw bounding boxes, labels, and confidence scores on the frame."""
+    """Draw Tesla vector bounding boxes, corner brackets, and distance tags."""
+    h, w = frame.shape[:2]
     for det in result.detections:
         x1, y1, x2, y2 = det.bbox
-        color = COLORS[det.class_id % len(COLORS)]
+        x1 = max(0, min(w - 1, x1))
+        x2 = max(0, min(w - 1, x2))
+        y1 = max(0, min(h - 1, y1))
+        y2 = max(0, min(h - 1, y2))
 
+        category = map_to_target_category(det.class_name)
+        real_h = get_target_real_height(category)
+        focal_px = w * 0.75
+        bh = max(8, y2 - y1)
+        dist_m = float(np.clip((focal_px * real_h) / bh, 0.5, 60.0))
+
+        color = COLOR_BRASS_GOLD
         # Bounding box
-        cv2.rectangle(frame, (x1, y1), (x2, y2), color, 2)
+        cv2.rectangle(frame, (x1, y1), (x2, y2), color, 1, lineType=cv2.LINE_AA)
 
-        # Label background
-        label = f"{det.class_name} {det.confidence:.0%}"
-        (tw, th), _ = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, 0.5, 1)
-        cv2.rectangle(frame, (x1, y1 - th - 8), (x1 + tw + 4, y1), color, -1)
+        # Tesla corner brackets
+        clen = max(6, min(14, (x2 - x1) // 3, (y2 - y1) // 3))
+        cv2.line(frame, (x1, y1), (x1 + clen, y1), color, 2)
+        cv2.line(frame, (x1, y1), (x1, y1 + clen), color, 2)
+        cv2.line(frame, (x2, y1), (x2 - clen, y1), color, 2)
+        cv2.line(frame, (x2, y1), (x2, y1 + clen), color, 2)
+        cv2.line(frame, (x1, y2), (x1 + clen, y2), color, 2)
+        cv2.line(frame, (x1, y2), (x1, y2 - clen), color, 2)
+        cv2.line(frame, (x2, y2), (x2 - clen, y2), color, 2)
+        cv2.line(frame, (x2, y2), (x2, y2 - clen), color, 2)
 
-        # Label text
+        # Label background in brass-gold #E5CD82
+        label = f"{category} {dist_m:.1f}m"
+        (tw, th), _ = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, 0.48, 1)
+        tag_y1 = max(0, y1 - th - 8)
+        tag_x2 = min(w - 1, x1 + tw + 10)
+        cv2.rectangle(frame, (x1, tag_y1), (tag_x2, y1), COLOR_BRASS_GOLD, -1)
+        cv2.rectangle(frame, (x1, tag_y1), (tag_x2, y1), COLOR_CREAM_YELLOW, 1)
+
+        # Label text in deep forest green #15370D
         cv2.putText(
-            frame, label, (x1 + 2, y1 - 4),
-            cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1,
+            frame, label, (x1 + 4, y1 - 4),
+            cv2.FONT_HERSHEY_SIMPLEX, 0.48, COLOR_BG_DARK_GREEN, 1, cv2.LINE_AA
         )
 
     return frame
@@ -82,47 +108,52 @@ def draw_hud(
     collision_active: bool,
     paused: bool,
 ) -> np.ndarray:
-    """Draw the heads-up display overlay (FPS, object counts, status)."""
+    """Draw the heads-up display overlay in uniform forest green and brass gold."""
     h, w = frame.shape[:2]
 
-    # ── Top-left: FPS and status bar ──
-    status_text = f"{fps:.0f} FPS | {result.inference_time_ms:.0f}ms | {source_name}"
+    # -- Top bar --
+    status_text = f"Spatial Sight | {fps:.0f} FPS | {result.inference_time_ms:.0f}ms | {source_name}"
     if paused:
         status_text = "PAUSED | " + status_text
 
-    cv2.rectangle(frame, (0, 0), (w, 30), (0, 0, 0), -1)
+    cv2.rectangle(frame, (0, 0), (w, 32), COLOR_BG_DARK_GREEN, -1)
+    cv2.line(frame, (0, 32), (w, 32), COLOR_BRASS_GOLD, 1)
     cv2.putText(
-        frame, status_text, (10, 20),
-        cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 1,
+        frame, status_text, (12, 22),
+        cv2.FONT_HERSHEY_SIMPLEX, 0.5, COLOR_CREAM_YELLOW, 1, cv2.LINE_AA
     )
 
-    # ── Right side: Object count panel ──
-    counts = result.count_by_class
+    # -- Right side: Object count panel --
+    counts: dict[str, int] = {}
+    for det in result.detections:
+        cat = map_to_target_category(det.class_name)
+        counts[cat] = counts.get(cat, 0) + 1
+
     if counts:
         panel_w = 200
         panel_h = 30 + len(counts) * 22 + 10
-        px = w - panel_w - 10
-        py = 40
+        px = w - panel_w - 12
+        py = 42
 
         # Semi-transparent background
         overlay = frame.copy()
-        cv2.rectangle(overlay, (px, py), (px + panel_w, py + panel_h), (0, 0, 0), -1)
-        cv2.addWeighted(overlay, 0.6, frame, 0.4, 0, frame)
+        cv2.rectangle(overlay, (px, py), (px + panel_w, py + panel_h), COLOR_BG_DARK_GREEN, -1)
+        cv2.addWeighted(overlay, 0.75, frame, 0.25, 0, frame)
+        cv2.rectangle(frame, (px, py), (px + panel_w, py + panel_h), COLOR_BRASS_GOLD, 1)
 
         cv2.putText(
-            frame, f"OBJECTS: {result.total_count}", (px + 8, py + 20),
-            cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 255), 1,
+            frame, f"Objects ({len(result.detections)})", (px + 10, py + 20),
+            cv2.FONT_HERSHEY_SIMPLEX, 0.5, COLOR_CREAM_YELLOW, 1, cv2.LINE_AA
         )
 
-        for i, (cls, count) in enumerate(sorted(counts.items())):
-            y = py + 40 + i * 22
-            color = COLORS[hash(cls) % len(COLORS)]
+        for i, (cat, count) in enumerate(sorted(counts.items())):
+            y = py + 42 + i * 22
             cv2.putText(
-                frame, f"{cls}: {count}", (px + 12, y),
-                cv2.FONT_HERSHEY_SIMPLEX, 0.45, color, 1,
+                frame, f"{cat}: {count}", (px + 14, y),
+                cv2.FONT_HERSHEY_SIMPLEX, 0.45, COLOR_BRASS_GOLD, 1, cv2.LINE_AA
             )
 
-    # ── Bottom: Controls hint ──
+    # -- Bottom: Controls hint --
     hint = "Q:Quit  C:Capture  +/-:Confidence  Z:CollisionZone  SPACE:Pause"
     cv2.putText(
         frame, hint, (10, h - 10),
@@ -143,7 +174,7 @@ def save_dataset_frame(frame: np.ndarray, result: InferenceResult, dataset_dir: 
 
     cv2.imwrite(img_path, frame)
 
-    # Save YOLO format labels (class_id cx cy w h — all normalized)
+    # Save YOLO format labels (class_id cx cy w h - all normalized)
     h, w = frame.shape[:2]
     with open(lbl_path, "w") as f:
         for det in result.detections:
@@ -169,7 +200,7 @@ def resolve_source(source_arg: str) -> tuple[str | int, str]:
         idx = int(source_arg)
         return idx, f"Webcam {idx}"
 
-    # Check if it's "usb" — auto-detect phone over ADB
+    # Check if it's "usb" - auto-detect phone over ADB
     if source_arg.lower() == "usb":
         if not is_adb_available():
             logger.error("ADB not found! Install with: brew install android-platform-tools")
@@ -191,7 +222,7 @@ def resolve_source(source_arg: str) -> tuple[str | int, str]:
 
 
 def main():
-    parser = argparse.ArgumentParser(description="SpatialSight — Object Detection Engine")
+    parser = argparse.ArgumentParser(description="SpatialSight - Object Detection Engine")
     parser.add_argument(
         "--source", default="0",
         help="Video source: webcam index (0), 'usb' for phone, URL, or file path",
@@ -210,11 +241,11 @@ def main():
     )
     args = parser.parse_args()
 
-    # ── Resolve video source ──
+    # -- Resolve video source --
     source, source_name = resolve_source(args.source)
     logger.info(f"Video source: {source_name}")
 
-    # ── Load YOLO model ──
+    # -- Load YOLO model --
     engine = InferenceEngine()
     engine.set_confidence(args.confidence)
 
@@ -223,9 +254,9 @@ def main():
         logger.error("Failed to load model. Exiting.")
         sys.exit(1)
 
-    logger.info(f"Model loaded — {len(engine.class_names)} classes on {engine.device}")
+    logger.info(f"Model loaded - {len(engine.class_names)} classes on {engine.device}")
 
-    # ── Start frame buffer ──
+    # -- Start frame buffer --
     buffer = FrameBuffer(source)
     buffer.start()
 
@@ -242,7 +273,7 @@ def main():
 
     logger.info("Video connected! Starting detection loop...")
 
-    # ── Detection loop ──
+    # -- Detection loop --
     collision_zone = CollisionZone()
     show_collision_zone = False
     paused = False
@@ -251,7 +282,7 @@ def main():
     fps_timer = time.monotonic()
     display_fps = 0.0
 
-    window_name = "SpatialSight — Object Detection"
+    window_name = "SpatialSight - Object Detection"
     cv2.namedWindow(window_name, cv2.WINDOW_NORMAL)
     cv2.resizeWindow(window_name, 1280, 720)
 
@@ -262,7 +293,7 @@ def main():
 
             if key in (ord("q"), ord("Q"), 27):  # Q or ESC
                 break
-            elif key == ord(" "):  # Space — pause/resume
+            elif key == ord(" "):  # Space - pause/resume
                 paused = not paused
                 logger.info("Paused" if paused else "Resumed")
             elif key in (ord("c"), ord("C")):  # Capture dataset frame

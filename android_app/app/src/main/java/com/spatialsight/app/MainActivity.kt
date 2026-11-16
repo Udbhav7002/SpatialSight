@@ -1,6 +1,7 @@
 package com.spatialsight.app
 
 import android.Manifest
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
@@ -18,20 +19,18 @@ import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.core.content.ContextCompat
 import com.spatialsight.app.databinding.ActivityMainBinding
 import java.io.ByteArrayOutputStream
-import java.nio.ByteBuffer
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 
 /**
- * Main Activity — Camera preview with MJPEG streaming and sensor data.
+ * MainActivity - Landscape Camera Streamer with MJPEG HTTP Server & Sensor Bridge.
  *
- * Architecture:
- *   1. CameraX captures 720p frames at 30 FPS.
- *   2. ImageAnalysis callback compresses frames to JPEG.
- *   3. MjpegStreamServer serves frames over HTTP on localhost:8080.
- *   4. SensorService provides rotation vector orientation data.
- *   5. Mac connects via ADB: `adb forward tcp:8080 tcp:8080`
- *      then opens http://127.0.0.1:8080/video with OpenCV.
+ * Design Specifications:
+ * - Forced horizontal/landscape mode
+ * - Rear camera (CameraSelector.DEFAULT_BACK_CAMERA)
+ * - Matching Forest Green & Brass Gold styling (#15370D, #E5CD82, #FFF2B4)
+ * - Clean UI: Top "SpatialSight" title, status "• Streaming", central [Start/Stop Streaming] button
+ * - Zero emojis
  */
 class MainActivity : AppCompatActivity() {
 
@@ -50,14 +49,13 @@ class MainActivity : AppCompatActivity() {
     private var lastFpsTime = System.currentTimeMillis()
     private var displayFps = 0f
 
-    // Camera permission request
     private val cameraPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { granted ->
         if (granted) {
             startCamera()
         } else {
-            Toast.makeText(this, "Camera permission is required", Toast.LENGTH_LONG).show()
+            Toast.makeText(this, "Camera permission is required for streaming", Toast.LENGTH_LONG).show()
             finish()
         }
     }
@@ -69,20 +67,14 @@ class MainActivity : AppCompatActivity() {
 
         cameraExecutor = Executors.newSingleThreadExecutor()
 
-        // Initialize sensor service
+        // Initialize sensor service & stream server
         sensorService = SensorService(this)
-
-        // Initialize MJPEG stream server
         streamServer = MjpegStreamServer(STREAM_PORT)
 
-        // Wire sensor data to stream server
         sensorService.onSensorUpdate = { data ->
             streamServer.pushSensorData(data)
-            // Update UI on main thread
-            runOnUiThread { updateSensorDisplay(data) }
         }
 
-        // Set up UI buttons
         setupUI()
 
         // Check camera permission
@@ -105,26 +97,21 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    /**
-     * Start the CameraX preview and image analysis pipeline.
-     */
     private fun startCamera() {
         val cameraProviderFuture = ProcessCameraProvider.getInstance(this)
 
         cameraProviderFuture.addListener({
             val cameraProvider = cameraProviderFuture.get()
 
-            // Preview use case — shows camera feed on screen
             val preview = Preview.Builder()
-                .setTargetResolution(android.util.Size(1280, 720))
+                .setTargetAspectRatio(AspectRatio.RATIO_16_9)
                 .build()
                 .also {
                     it.surfaceProvider = binding.previewView.surfaceProvider
                 }
 
-            // ImageAnalysis use case — captures frames for MJPEG streaming
             val imageAnalysis = ImageAnalysis.Builder()
-                .setTargetResolution(android.util.Size(1280, 720))
+                .setTargetAspectRatio(AspectRatio.RATIO_16_9)
                 .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
                 .setOutputImageFormat(ImageAnalysis.OUTPUT_IMAGE_FORMAT_YUV_420_888)
                 .build()
@@ -134,7 +121,7 @@ class MainActivity : AppCompatActivity() {
                     }
                 }
 
-            // Use back camera
+            // Forced Rear / Back Camera as specified
             val cameraSelector = CameraSelector.DEFAULT_BACK_CAMERA
 
             try {
@@ -142,18 +129,16 @@ class MainActivity : AppCompatActivity() {
                 cameraProvider.bindToLifecycle(
                     this, cameraSelector, preview, imageAnalysis
                 )
-                Log.i(TAG, "Camera started successfully")
-                updateStatus("Camera ready — tap Start to stream")
+                Log.i(TAG, "Rear camera started successfully in landscape mode")
+                if (intent?.getBooleanExtra("auto_stream", false) == true) {
+                    startStreaming()
+                }
             } catch (e: Exception) {
-                Log.e(TAG, "Camera bind failed", e)
-                updateStatus("Camera error: ${e.message}")
+                Log.e(TAG, "Camera bind failed: ${e.message}", e)
             }
         }, ContextCompat.getMainExecutor(this))
     }
 
-    /**
-     * Process each camera frame — compress to JPEG and push to the stream server.
-     */
     private fun processFrame(imageProxy: ImageProxy) {
         if (!isStreaming) {
             imageProxy.close()
@@ -166,7 +151,6 @@ class MainActivity : AppCompatActivity() {
                 streamServer.pushFrame(bitmap)
                 bitmap.recycle()
 
-                // FPS counter
                 frameCount++
                 val now = System.currentTimeMillis()
                 val elapsed = now - lastFpsTime
@@ -178,15 +162,12 @@ class MainActivity : AppCompatActivity() {
                 }
             }
         } catch (e: Exception) {
-            Log.e(TAG, "Frame processing error", e)
+            Log.e(TAG, "Frame processing error: ${e.message}", e)
         } finally {
             imageProxy.close()
         }
     }
 
-    /**
-     * Convert CameraX ImageProxy (YUV_420_888) to a Bitmap.
-     */
     private fun imageProxyToBitmap(imageProxy: ImageProxy): Bitmap? {
         val yBuffer = imageProxy.planes[0].buffer
         val uBuffer = imageProxy.planes[1].buffer
@@ -197,8 +178,6 @@ class MainActivity : AppCompatActivity() {
         val vSize = vBuffer.remaining()
 
         val nv21 = ByteArray(ySize + uSize + vSize)
-
-        // YUV_420_888 → NV21
         yBuffer.get(nv21, 0, ySize)
         vBuffer.get(nv21, ySize, vSize)
         uBuffer.get(nv21, ySize + vSize, uSize)
@@ -217,75 +196,77 @@ class MainActivity : AppCompatActivity() {
         val jpegBytes = out.toByteArray()
         val bitmap = BitmapFactory.decodeByteArray(jpegBytes, 0, jpegBytes.size)
 
-        // Handle rotation if needed
         val rotation = imageProxy.imageInfo.rotationDegrees
+        var finalBitmap: Bitmap? = bitmap
         if (rotation != 0 && bitmap != null) {
             val matrix = Matrix()
             matrix.postRotate(rotation.toFloat())
-            val rotated = Bitmap.createBitmap(bitmap, 0, 0, bitmap.width, bitmap.height, matrix, true)
+            finalBitmap = Bitmap.createBitmap(bitmap, 0, 0, bitmap.width, bitmap.height, matrix, true)
             bitmap.recycle()
-            return rotated
         }
 
-        return bitmap
+        // Guarantee horizontal / landscape feed: if height > width, rotate 90 degrees to landscape
+        if (finalBitmap != null && finalBitmap.height > finalBitmap.width) {
+            val matrix = Matrix()
+            matrix.postRotate(90f)
+            val landscapeBitmap = Bitmap.createBitmap(
+                finalBitmap, 0, 0, finalBitmap.width, finalBitmap.height, matrix, true
+            )
+            finalBitmap.recycle()
+            finalBitmap = landscapeBitmap
+        }
+
+        return finalBitmap
     }
 
-    /**
-     * Start the MJPEG stream server and sensor service.
-     */
     private fun startStreaming() {
+        if (isStreaming) return
         try {
-            streamServer.start()
+            if (!streamServer.isAlive) {
+                streamServer.start()
+            }
             sensorService.start()
             isStreaming = true
 
             binding.btnToggleStream.text = "Stop Streaming"
-            binding.btnToggleStream.setBackgroundColor(
-                ContextCompat.getColor(this, android.R.color.holo_red_dark)
-            )
-            updateStatus("Streaming on port $STREAM_PORT — Connect Mac via USB")
-            binding.connectionIndicator.visibility = View.VISIBLE
+            binding.btnToggleStream.setBackgroundResource(R.drawable.button_border_red)
+            binding.streamingIndicatorLayout.visibility = View.VISIBLE
+            binding.txtFps.visibility = View.VISIBLE
 
             Log.i(TAG, "Stream server started on port $STREAM_PORT")
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to start stream server", e)
-            updateStatus("Error: ${e.message}")
+            Log.e(TAG, "Failed to start stream server: ${e.message}", e)
+            Toast.makeText(this, "Failed to start server: ${e.message}", Toast.LENGTH_SHORT).show()
         }
     }
 
-    /**
-     * Stop the MJPEG stream server and sensor service.
-     */
     private fun stopStreaming() {
-        streamServer.stop()
-        sensorService.stop()
-        isStreaming = false
+        try {
+            streamServer.stop()
+            sensorService.stop()
+            isStreaming = false
 
-        binding.btnToggleStream.text = "Start Streaming"
-        binding.btnToggleStream.setBackgroundColor(
-            ContextCompat.getColor(this, android.R.color.holo_green_dark)
-        )
-        updateStatus("Streaming stopped")
-        binding.connectionIndicator.visibility = View.GONE
-        binding.txtFps.text = ""
+            binding.btnToggleStream.text = "Start Streaming"
+            binding.btnToggleStream.setBackgroundResource(R.drawable.button_border_gold)
+            binding.streamingIndicatorLayout.visibility = View.GONE
+            binding.txtFps.visibility = View.GONE
 
-        Log.i(TAG, "Stream server stopped")
-    }
-
-    private fun updateStatus(message: String) {
-        binding.txtStatus.text = message
+            Log.i(TAG, "Stream server stopped")
+        } catch (e: Exception) {
+            Log.e(TAG, "Error stopping stream server: ${e.message}", e)
+        }
     }
 
     private fun updateFpsDisplay() {
-        binding.txtFps.text = "%.0f FPS | Clients: %d".format(
-            displayFps, streamServer.activeClients
-        )
+        binding.txtFps.text = "%.0f FPS".format(displayFps)
     }
 
-    private fun updateSensorDisplay(data: SensorData) {
-        binding.txtSensor.text = "Yaw: %.1f° | Pitch: %.1f° | Roll: %.1f°".format(
-            data.yaw, data.pitch, data.roll
-        )
+    override fun onNewIntent(intent: Intent?) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        if (intent?.getBooleanExtra("auto_stream", false) == true && !isStreaming) {
+            startStreaming()
+        }
     }
 
     override fun onResume() {

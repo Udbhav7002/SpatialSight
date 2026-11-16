@@ -1,16 +1,17 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
 
-    <!-- SpatialSight Dark Theme -->
+    <!-- SpatialSight Dark Forest Green & Brass Theme -->
     <style name="Theme.SpatialSight" parent="Theme.MaterialComponents.DayNight.NoActionBar">
-        <item name="colorPrimary">#00C853</item>
-        <item name="colorPrimaryVariant">#009624</item>
-        <item name="colorOnPrimary">#000000</item>
-        <item name="colorSecondary">#448AFF</item>
-        <item name="colorSecondaryVariant">#0059CB</item>
-        <item name="colorOnSecondary">#000000</item>
-        <item name="android:statusBarColor">#000000</item>
-        <item name="android:navigationBarColor">#000000</item>
+        <item name="colorPrimary">@color/brand_surface</item>
+        <item name="colorPrimaryVariant">@color/brand_bg</item>
+        <item name="colorOnPrimary">@color/brand_text</item>
+        <item name="colorSecondary">@color/brand_border</item>
+        <item name="colorSecondaryVariant">@color/brand_border</item>
+        <item name="colorOnSecondary">@color/brand_bg</item>
+        <item name="android:statusBarColor">@color/brand_bg</item>
+        <item name="android:navigationBarColor">@color/brand_bg</item>
+        <item name="android:windowBackground">@color/brand_bg</item>
         <item name="android:windowFullscreen">true</item>
     </style>
 

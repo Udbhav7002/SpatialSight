@@ -1,5 +1,5 @@
 """
-Angular Deduplication — Spatial deduplication of detected objects across keyframes.
+Angular Deduplication - Spatial deduplication of detected objects across keyframes.
 
 When the same physical object (e.g., a chair) appears in multiple keyframes
 taken from different angles, this module merges them into a single unique
@@ -17,7 +17,7 @@ class SpatialObject:
     """A unique physical object in the room after deduplication."""
     object_id: int
     class_name: str
-    world_angle: float           # Estimated azimuth in degrees (0–360)
+    world_angle: float           # Estimated azimuth in degrees (0-360)
     confidence: float            # Best confidence across all sightings
     sighting_count: int = 1      # How many keyframes this object appeared in
     keyframe_indices: list[int] = field(default_factory=list)
@@ -25,7 +25,7 @@ class SpatialObject:
     def __repr__(self) -> str:
         return (
             f"SpatialObject(id={self.object_id}, class='{self.class_name}', "
-            f"angle={self.world_angle:.1f}°, conf={self.confidence:.2f}, "
+            f"angle={self.world_angle:.1f} deg, conf={self.confidence:.2f}, "
             f"sightings={self.sighting_count})"
         )
 
@@ -38,12 +38,12 @@ class AngularDeduplicator:
     their estimated world angles are within `merge_threshold` degrees of each other.
 
     Example:
-        - Keyframe 1 (yaw=10°): detects "chair" at world angle 25°
-        - Keyframe 2 (yaw=40°): detects "chair" at world angle 28°
-        - Δangle = 3° < threshold (15°) → SAME chair → merged
+        - Keyframe 1 (yaw=10 deg): detects "chair" at world angle 25 deg
+        - Keyframe 2 (yaw=40 deg): detects "chair" at world angle 28 deg
+        - deltaangle = 3 deg < threshold (15 deg) -> SAME chair -> merged
 
-        - Keyframe 3 (yaw=170°): detects "chair" at world angle 155°
-        - Δangle from chair-1 = 130° > threshold → DIFFERENT chair → new object
+        - Keyframe 3 (yaw=170 deg): detects "chair" at world angle 155 deg
+        - deltaangle from chair-1 = 130 deg > threshold -> DIFFERENT chair -> new object
     """
 
     def __init__(self, merge_threshold: float = 15.0):
@@ -74,8 +74,8 @@ class AngularDeduplicator:
 
         Args:
             class_name: Detected object class (e.g., "chair").
-            world_angle: Estimated world angle in degrees (0–360).
-            confidence: Detection confidence (0.0 – 1.0).
+            world_angle: Estimated world angle in degrees (0-360).
+            confidence: Detection confidence (0.0 - 1.0).
             keyframe_index: Index of the keyframe this detection came from.
 
         Returns:
@@ -102,8 +102,8 @@ class AngularDeduplicator:
                 best_match.keyframe_indices.append(keyframe_index)
 
             logger.debug(
-                f"Merged '{class_name}' at {world_angle:.1f}° with object "
-                f"{best_match.object_id} (Δ={best_delta:.1f}°)"
+                f"Merged '{class_name}' at {world_angle:.1f} deg with object "
+                f"{best_match.object_id} (delta={best_delta:.1f} deg)"
             )
             return best_match
         else:
@@ -120,7 +120,7 @@ class AngularDeduplicator:
             self._next_id += 1
 
             logger.debug(
-                f"New object #{new_obj.object_id}: '{class_name}' at {world_angle:.1f}°"
+                f"New object #{new_obj.object_id}: '{class_name}' at {world_angle:.1f} deg"
             )
             return new_obj
 
@@ -152,11 +152,11 @@ class AngularDeduplicator:
             return "No objects detected."
 
         lines = ["ROOM INVENTORY (Deduplicated)"]
-        lines.append("─" * 35)
+        lines.append("-" * 35)
         for cls, count in inventory.items():
             dots = "." * (25 - len(cls))
-            lines.append(f"  • {cls} {dots} {count}")
-        lines.append("─" * 35)
+            lines.append(f"  - {cls} {dots} {count}")
+        lines.append("-" * 35)
         lines.append(f"  Total Unique Objects: {self.get_total_unique_count()}")
         return "\n".join(lines)
 

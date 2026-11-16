@@ -11,8 +11,12 @@ cd "$SCRIPT_DIR"
 
 # Check for Python 3.10-3.12 (preferred on Apple Silicon for PyTorch MPS)
 PYTHON_BIN=""
-if command -v python3.12 &>/dev/null; then
+if [ -x "/opt/homebrew/bin/python3.12" ]; then
+    PYTHON_BIN="/opt/homebrew/bin/python3.12"
+elif command -v python3.12 &>/dev/null; then
     PYTHON_BIN="python3.12"
+elif [ -x "/opt/homebrew/bin/python3.11" ]; then
+    PYTHON_BIN="/opt/homebrew/bin/python3.11"
 elif command -v python3.11 &>/dev/null; then
     PYTHON_BIN="python3.11"
 elif command -v python3.10 &>/dev/null; then

@@ -1,5 +1,5 @@
 """
-Keyframe Selector — Sensor-triggered smart keyframe capture.
+Keyframe Selector - Sensor-triggered smart keyframe capture.
 
 Uses phone orientation data (yaw, pitch, roll) to capture frames ONLY when
 the camera points at a genuinely new area of the room. This eliminates
@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class SensorData:
     """Orientation data from the phone's rotation vector sensor."""
-    yaw: float    # Horizontal rotation in degrees (0–360)
+    yaw: float    # Horizontal rotation in degrees (0-360)
     pitch: float  # Vertical tilt in degrees (-90 to +90)
     roll: float   # Tilt/rotation in degrees (-180 to +180)
     timestamp: float = 0.0  # Monotonic timestamp
@@ -105,7 +105,7 @@ class KeyframeSelector:
             All captured keyframes from this session.
         """
         self._scanning = False
-        logger.info(f"Room scan stopped — {len(self._keyframes)} keyframes captured")
+        logger.info(f"Room scan stopped - {len(self._keyframes)} keyframes captured")
         return self._keyframes.copy()
 
     def should_capture(self, sensor: SensorData) -> bool:
@@ -167,8 +167,8 @@ class KeyframeSelector:
         self._last_capture_time = now
 
         logger.info(
-            f"Keyframe {kf.index} captured — "
-            f"Yaw: {sensor.yaw:.1f}°, Pitch: {sensor.pitch:.1f}°"
+            f"Keyframe {kf.index} captured - "
+            f"Yaw: {sensor.yaw:.1f} deg, Pitch: {sensor.pitch:.1f} deg"
         )
 
         return kf
@@ -179,11 +179,11 @@ class KeyframeSelector:
 
     def get_coverage_percentage(self) -> float:
         """
-        Estimate what percentage of a full 360° horizontal sweep
+        Estimate what percentage of a full 360 deg horizontal sweep
         has been covered by the captured keyframes.
 
         Returns:
-            Coverage as a percentage (0.0 – 100.0).
+            Coverage as a percentage (0.0 - 100.0).
         """
         if not self._keyframes:
             return 0.0
@@ -218,7 +218,7 @@ class KeyframeSelector:
             frame_width: Width of the frame in pixels.
 
         Returns:
-            Estimated world angle in degrees (0–360).
+            Estimated world angle in degrees (0-360).
         """
         # Normalized position: -0.5 (far left) to +0.5 (far right)
         normalized_x = (bbox_center_x / frame_width) - 0.5
@@ -236,7 +236,7 @@ class KeyframeSelector:
         """
         Compute the shortest angular difference between two angles.
 
-        Handles wraparound (e.g., 350° to 10° = 20°, not 340°).
+        Handles wraparound (e.g., 350 deg to 10 deg = 20 deg, not 340 deg).
         """
         diff = (a - b + 180) % 360 - 180
         return diff
